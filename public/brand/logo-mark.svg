@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Arsham Form">
+  <defs>
+    <linearGradient id="arsham-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2dd4bf"/>
+      <stop offset=".45" stop-color="#14b8a6"/>
+      <stop offset="1" stop-color="#0f766e"/>
+    </linearGradient>
+    <linearGradient id="arsham-sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".2"/>
+      <stop offset=".55" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="arsham-sheet" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#ecfdf9"/>
+    </linearGradient>
+  </defs>
+
+  <!-- badge -->
+  <rect x="16" y="16" width="480" height="480" rx="118" fill="url(#arsham-bg)"/>
+  <rect x="16" y="16" width="480" height="480" rx="118" fill="url(#arsham-sheen)"/>
+
+  <!-- form sheet -->
+  <rect x="154" y="122" width="220" height="298" rx="30" fill="#0b4f4a" opacity=".35"/>
+  <rect x="146" y="108" width="220" height="298" rx="30" fill="url(#arsham-sheet)"/>
+
+  <!-- form title line -->
+  <rect x="184" y="146" width="144" height="24" rx="12" fill="#115e59"/>
+
+  <!-- row 1: checked -->
+  <circle cx="202" cy="216" r="17" fill="#0d9488"/>
+  <path d="M194 216.5l6 6 10.5-11" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <rect x="234" y="207" width="92" height="18" rx="9" fill="#99f6e4"/>
+
+  <!-- row 2: checked -->
+  <circle cx="202" cy="274" r="17" fill="#0d9488"/>
+  <path d="M194 274.5l6 6 10.5-11" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <rect x="234" y="265" width="92" height="18" rx="9" fill="#99f6e4"/>
+
+  <!-- row 3: pending -->
+  <circle cx="202" cy="332" r="15" fill="none" stroke="#5eead4" stroke-width="6"/>
+  <rect x="234" y="323" width="66" height="18" rx="9" fill="#ccfbf1"/>
+
+  <!-- verified bubble -->
+  <circle cx="356" cy="368" r="72" fill="#115e59" stroke="#ffffff" stroke-width="16"/>
+  <path d="M324 370l22 22 42-46" stroke="#ffffff" stroke-width="17" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>

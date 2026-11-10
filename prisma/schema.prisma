@@ -1,0 +1,143 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// Arsham Form — Local preview schema (mirrors supabase/migrations)
+// In production (Supabase mode) PostgreSQL + RLS is used instead.
+// ============================================================
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  displayName  String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  forms  Form[]
+  tokens PasswordResetToken[]
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Form {
+  id          String   @id @default(cuid())
+  ownerId     String
+  title       String
+  description String   @default("")
+  formType    String   @default("form") // form | quiz | survey
+  status      String   @default("draft") // draft | published | closed
+  publicId    String   @unique
+  settings    String   @default("{}") // JSON FormSettings
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  publishedAt DateTime?
+
+  owner     User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  questions Question[]
+  responses Response[]
+  aiAnalyses AiAnalysis[]
+
+  @@index([ownerId])
+  @@index([ownerId, status])
+}
+
+model Question {
+  id               String   @id @default(cuid())
+  formId           String
+  type             String
+  title            String
+  description      String   @default("")
+  required         Boolean  @default(false)
+  position         Int      @default(0)
+  choices          String   @default("null") // JSON
+  config           String   @default("{}") // JSON type-specific config
+  scoringRules     String   @default("null") // JSON
+  conditionalRules String   @default("null") // JSON
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  form    Form      @relation(fields: [formId], references: [id], onDelete: Cascade)
+  answers Answer[]
+
+  @@index([formId, position])
+}
+
+model Response {
+  id            String    @id @default(cuid())
+  formId        String
+  respondentId  String? // user id when logged in
+  respondentKey String    @default("") // anonymous stable key (hashed ip+ua cookie) for attempt limits
+  status        String    @default("submitted")
+  totalScore    Float?
+  maxScore      Float?
+  passed        Boolean?
+  attemptNumber Int       @default(1)
+  startedAt     DateTime?
+  submittedAt   DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  form    Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+  answers Answer[]
+
+  @@index([formId, submittedAt])
+  @@index([formId, respondentKey])
+}
+
+model Answer {
+  id          String   @id @default(cuid())
+  responseId  String
+  questionId  String
+  answerValue String   @default("null") // JSON
+  createdAt   DateTime @default(now())
+
+  response Response @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([responseId])
+  @@index([questionId])
+}
+
+model UploadedFile {
+  id        String   @id @default(cuid())
+  formId    String
+  path      String
+  name      String
+  mime      String
+  size      Int
+  createdAt DateTime @default(now())
+
+  @@index([formId])
+}
+
+// One row per AI generation (latest is shown in reports). Analysis JSON:
+// { summary, insights[], anomalies[], suggestions[] } — see src/lib/ai/analysis.ts
+model AiAnalysis {
+  id             String   @id @default(cuid())
+  formId         String
+  analysis       String   // JSON AiAnalysisData
+  model          String
+  provider       String   @default("zai")
+  responsesCount Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  form Form @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@index([formId, createdAt])
+}
