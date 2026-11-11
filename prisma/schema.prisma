@@ -92,12 +92,16 @@ model Response {
   startedAt     DateTime?
   submittedAt   DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+  // secure-exam identity captured at submit time
+  respondentName         String?
+  respondentNationalId   String?
 
   form    Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
   answers Answer[]
 
   @@index([formId, submittedAt])
   @@index([formId, respondentKey])
+  @@index([formId, respondentNationalId])
 }
 
 model Answer {

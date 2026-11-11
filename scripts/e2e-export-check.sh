@@ -7,6 +7,8 @@ J=/tmp/ck.jar
 rm -f $J
 
 EMAIL="chk$RANDOM@test.local"
+Q1="q1$RANDOM"
+Q2="q2$RANDOM"
 PASS="Passw0rd!234"
 
 echo "== register =="
@@ -28,7 +30,7 @@ echo "FID=$FID PID=$PID"
 
 echo "== bulk save questions (PUT) =="
 curl -s -b $J -X PUT $BASE/api/forms/$FID/questions -H 'Content-Type: application/json' \
-  -d '{"questions":[{"id":"q1","type":"short_text","title":"نام شما","required":true,"position":0},{"id":"q2","type":"rating_5","title":"امتیاز شما","required":true,"position":1}]}'
+  -d "{\"questions\":[{\"id\":\"$Q1\",\"type\":\"short_text\",\"title\":\"نام شما\",\"required\":true,\"position\":0},{\"id\":\"$Q2\",\"type\":\"rating_5\",\"title\":\"امتیاز شما\",\"required\":true,\"position\":1}]}"
 echo
 
 echo "== publish =="
@@ -36,11 +38,11 @@ curl -s -b $J -X PATCH $BASE/api/forms/$FID -H 'Content-Type: application/json' 
   -d '{"status":"published"}' | python3 -c "import sys,json;print('status =',json.load(sys.stdin).get('form',{}).get('status'))"
 
 echo "== public read by publicId =="
-curl -s $BASE/api/public/forms/$PID | python3 -c "import sys,json;d=json.load(sys.stdin);print('ok =',d.get('ok'),'| questions =',len(d.get('form',{}).get('questions',[])))"
+curl -s $BASE/api/public/forms/$PID | python3 -c "import sys,json;d=json.load(sys.stdin);print('ok =',d.get('ok'),'| questions =',len(d.get('questions') or []))"
 
 echo "== public submit =="
 curl -s -X POST $BASE/api/public/forms/$PID/submit -H 'Content-Type: application/json' \
-  -d '{"answers":{"q1":"کاربر آزمون","q2":4}}'
+  -d "{\"answers\":{\"$Q1\":\"کاربر آزمون\",\"$Q2\":4}}"
 echo
 
 echo "== download exports =="
