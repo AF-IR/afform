@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { ThemeProvider } from 'next-themes'
 import { Toaster } from 'sonner'
+import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
 /** Production default: aflab.vercel.app (override with NEXT_PUBLIC_SITE_URL). */
@@ -63,6 +64,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           {children}
           <Toaster position="top-center" richColors dir="rtl" />
         </ThemeProvider>
+        <Analytics />
       </body>
     </html>
   )
