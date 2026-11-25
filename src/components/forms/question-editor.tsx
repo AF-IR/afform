@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { toast } from 'sonner'
 import {
-  ChevronDown, ChevronUp, Copy, GripVertical, Pencil, Plus, Trash2, X,
+  ChevronDown, ChevronUp, Copy, GripVertical, Image as ImageIcon, Loader2, Pencil, Plus, Trash2, X,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -13,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { MathText } from '@/components/questions/math-text'
 import {
   QUESTION_TYPE_META, type Choice, type ConditionalOperator, type ConditionalRule, type Question, type QuestionConfig,
 } from '@/types'
@@ -24,6 +26,38 @@ export function newChoiceId(): string {
 
 export function newQuestionId(): string {
   return `q_${Math.random().toString(36).slice(2, 10)}`
+}
+
+/** Client-side image resize → JPEG data URL (≤ ~280 KB) for question images. */
+async function fileToDataUrl(file: File, maxKB = 280): Promise<string> {
+  if (!file.type.startsWith('image/')) throw new Error('فقط فایل تصویری مجاز است')
+  const bitmap = await createImageBitmap(file)
+  const maxW = 1280
+  const scale = Math.min(1, maxW / bitmap.width)
+  let w = Math.round(bitmap.width * scale)
+  let h = Math.round(bitmap.height * scale)
+  const canvas = document.createElement('canvas')
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('پردازش تصویر ممکن نشد')
+  canvas.width = w
+  canvas.height = h
+  ctx.drawImage(bitmap, 0, 0, w, h)
+  let quality = 0.85
+  let url = canvas.toDataURL('image/jpeg', quality)
+  while (url.length > maxKB * 1024 * 1.35 && quality > 0.4) {
+    quality -= 0.15
+    url = canvas.toDataURL('image/jpeg', quality)
+  }
+  if (url.length > maxKB * 1024 * 1.35 && w > 800) {
+    // one more pass at lower resolution
+    w = Math.round(w * 0.7)
+    h = Math.round(h * 0.7)
+    canvas.width = w
+    canvas.height = h
+    ctx.drawImage(bitmap, 0, 0, w, h)
+    url = canvas.toDataURL('image/jpeg', 0.7)
+  }
+  return url
 }
 
 const CONDITIONAL_OPERATORS: { value: ConditionalOperator; label: string }[] = [
@@ -56,10 +90,41 @@ export function QuestionEditor({
   question: q, index, total, allQuestions, formType, onChange, onMoveUp, onMoveDown, onDuplicate, onRemove,
 }: Props) {
   const [open, setOpen] = useState(true)
+  const [imageBusy, setImageBusy] = useState(false)
+  const titleRef = useRef<HTMLInputElement | null>(null)
   const meta = QUESTION_TYPE_META[q.type]
 
   const patch = (p: Partial<Question>) => onChange({ ...q, ...p })
   const patchConfig = (p: Partial<QuestionConfig>) => onChange({ ...q, config: { ...q.config, ...p } })
+
+  /** Insert math markup into the question title at the cursor. */
+  function insertMath(snippet: string) {
+    const el = titleRef.current
+    const cur = q.title
+    const pos = el ? (el.selectionStart ?? cur.length) : cur.length
+    const next = cur.slice(0, pos) + snippet + cur.slice(pos)
+    patch({ title: next })
+    requestAnimationFrame(() => {
+      if (el) {
+        el.focus()
+        const p = pos + snippet.length
+        el.setSelectionRange(p, p)
+      }
+    })
+  }
+
+  async function handleImageChange(file: File) {
+    setImageBusy(true)
+    try {
+      const url = await fileToDataUrl(file)
+      patchConfig({ imageUrl: url })
+      toast.success('تصویر سوال اضافه شد')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'بارگذاری تصویر ناموفق بود')
+    } finally {
+      setImageBusy(false)
+    }
+  }
 
   const earlierQuestions = allQuestions.filter((x, i) => i < index && x.type !== 'info' && x.type !== 'separator')
 
@@ -118,8 +183,88 @@ export function QuestionEditor({
               {q.type === 'info' || q.type === 'separator' ? (
                 <Input id={`t-${q.id}`} value={q.title} onChange={(e) => patch({ title: e.target.value })} placeholder="عنوان بخش" />
               ) : (
-                <Input id={`t-${q.id}`} value={q.title} onChange={(e) => patch({ title: e.target.value })} placeholder="پرسش خود را بنویسید…" />
+                <>
+                  <Input
+                    id={`t-${q.id}`}
+                    ref={titleRef}
+                    value={q.title}
+                    onChange={(e) => patch({ title: e.target.value })}
+                    placeholder="پرسش خود را بنویسید…"
+                  />
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[11px] text-muted-foreground">درج سریع:</span>
+                    {[
+                      { label: 'x²', snippet: '^2', title: 'توان ۲' },
+                      { label: 'x³', snippet: '^3', title: 'توان ۳' },
+                      { label: 'xⁿ', snippet: '^{n}', title: 'توان دلخواه' },
+                      { label: 'H₂O', snippet: '_2', title: 'اندیس' },
+                      { label: '√x', snippet: 'sqrt{x}', title: 'جذر' },
+                    ].map((b) => (
+                      <button
+                        key={b.label}
+                        type="button"
+                        title={b.title}
+                        dir="ltr"
+                        onClick={() => insertMath(b.snippet)}
+                        className="rounded-md border bg-muted/50 px-2 py-1 font-mono text-xs transition-colors hover:bg-accent"
+                      >
+                        {b.label}
+                      </button>
+                    ))}
+                  </div>
+                  {q.title && (
+                    <p className="rounded-md bg-muted/40 px-2.5 py-1.5 text-xs">
+                      پیش‌نمایش: <MathText text={q.title} />
+                    </p>
+                  )}
+                  <p className="text-[11px] leading-5 text-muted-foreground">
+                    نوشتن توان: x^2 یا x^{'{'}n{'}'} — اندیس: H_2O — جذر: sqrt{'{'}x{'}'} (پشتیبانی کامل در فرم عمومی)
+                  </p>
+                </>
               )}
+            </div>
+            {/* question image (صورت سوال تصویری) */}
+            <div className="space-y-2 rounded-lg border p-3">
+              <div className="flex items-center justify-between">
+                <Label className="flex items-center gap-1.5">
+                  <ImageIcon className="h-4 w-4 text-primary" aria-hidden />
+                  تصویر صورت سوال (اختیاری)
+                </Label>
+                {q.config.imageUrl && (
+                  <Button
+                    variant="ghost" size="sm" className="h-7 text-xs hover:text-destructive"
+                    onClick={() => patchConfig({ imageUrl: undefined })}
+                  >
+                    <Trash2 className="ml-1 h-3.5 w-3.5" aria-hidden />
+                    حذف تصویر
+                  </Button>
+                )}
+              </div>
+              {q.config.imageUrl ? (
+                <div className="overflow-hidden rounded-lg border bg-muted/30">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={q.config.imageUrl} alt="پیش‌نمایش تصویر سوال" className="max-h-48 w-full object-contain" />
+                </div>
+              ) : (
+                <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed p-3 text-sm text-muted-foreground transition-colors hover:bg-muted/50">
+                  {imageBusy
+                    ? <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden />
+                    : <Plus className="h-4 w-4" aria-hidden />}
+                  افزودن تصویر (فرمول، شکل یا صورت سوال)
+                  <input
+                    type="file" className="hidden" accept="image/*"
+                    disabled={imageBusy}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0]
+                      if (f) void handleImageChange(f)
+                      e.currentTarget.value = ''
+                    }}
+                  />
+                </label>
+              )}
+              <p className="text-[11px] text-muted-foreground">
+                تصویر خودکار کوچک و فشرده می‌شود (حداکثر ۱۲۸۰ پیکسل) و همراه سؤال ذخیره می‌شود.
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor={`d-${q.id}`}>توضیح (اختیاری)</Label>

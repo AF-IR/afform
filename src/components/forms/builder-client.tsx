@@ -18,7 +18,7 @@ import { QuestionRenderer } from '@/components/questions/renderer'
 import { BuilderSettingsSheet } from '@/components/forms/builder-settings'
 import { computeVisibleQuestions } from '@/lib/forms/conditional'
 import {
-  ALL_QUESTION_TYPES, DEFAULT_FORM_SETTINGS, QUESTION_TYPE_META,
+  ALL_QUESTION_TYPES, DEFAULT_FORM_SETTINGS, EXAM_QUESTION_TYPES, QUESTION_TYPE_META,
   type AnswerValue, type FormSettings, type FormSummary, type Question, type QuestionType,
 } from '@/types'
 import { cn } from '@/lib/utils'
@@ -94,7 +94,7 @@ export function BuilderClient({
       const metaRes = await fetch(`/api/forms/${form.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: title.trim() || 'بدون عنوان', description, formType: form.formType }),
+        body: JSON.stringify({ title: title.trim() || 'بدون عنوان', description, formType: form.formType, settings }),
       })
       if (!metaRes.ok) {
         const d = await metaRes.json().catch(() => ({}))
@@ -118,7 +118,7 @@ export function BuilderClient({
       toast.error(e instanceof Error ? e.message : 'ذخیره‌سازی ناموفق بود — داده‌ها حفظ شده‌اند')
       return false
     }
-  }, [form.id, form.formType, title, description, questions])
+  }, [form.id, form.formType, title, description, questions, settings])
 
   // mark dirty on any change
   useEffect(() => {
@@ -128,7 +128,7 @@ export function BuilderClient({
     }
     dirtyRef.current = true
     setSaveState((s) => (s === 'saving' ? s : 'dirty'))
-  }, [title, description, questions])
+  }, [title, description, questions, settings])
 
   // auto-save — persist changes automatically after a short debounce
   const saveRef = useRef(save)
@@ -234,8 +234,10 @@ export function BuilderClient({
 
   const filteredTypes = useMemo(() => {
     const s = search.trim()
-    return ALL_QUESTION_TYPES.filter((t) => !s || QUESTION_TYPE_META[t].label.includes(s))
-  }, [search])
+    // exam mode offers only exam-appropriate types (auto-scoreable + structural)
+    const pool = form.formType === 'quiz' ? EXAM_QUESTION_TYPES : ALL_QUESTION_TYPES
+    return pool.filter((t) => !s || QUESTION_TYPE_META[t].label.includes(s))
+  }, [search, form.formType])
 
   const saveLabel: Record<SaveState, { text: string; cls: string; icon: React.ReactNode }> = {
     saved: { text: 'ذخیره شد', cls: 'text-green-600', icon: <CheckCircle2 className="h-4 w-4" aria-hidden /> },
@@ -316,6 +318,11 @@ export function BuilderClient({
               <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
               <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="جست‌وجوی نوع سؤال…" className="pr-9" />
             </div>
+            {form.formType === 'quiz' && (
+              <p className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs leading-5 text-muted-foreground">
+                <span className="font-bold text-foreground">حالت آزمون:</span> فقط انواع قابل نمره‌دهی خودکار (چهارگزینه‌ای، چندگزینه‌ای، کشویی، درست/نادرست، عددی و پاسخ کوتاه) ارائه می‌شود تا نمره‌دهی دقیق و بدون دخالت انجام شود.
+              </p>
+            )}
             {GROUPS.map((g) => {
               const items = filteredTypes.filter((t) => QUESTION_TYPE_META[t].group === g.key)
               if (!items.length) return null

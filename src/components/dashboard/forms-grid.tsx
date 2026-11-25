@@ -104,7 +104,7 @@ export function FormsGrid({ initialForms }: { initialForms: FormSummary[] }) {
 
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="fade-up-stagger grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {forms.map((f) => (
           <Card key={f.id} className="flex flex-col">
             <CardContent className="flex flex-1 flex-col gap-3 p-5">

@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { useTheme } from 'next-themes'
 import {
-  LayoutDashboard, LayoutTemplate, FileStack, LogOut, Menu,
+  LayoutDashboard, LayoutTemplate, FileStack, GraduationCap, LogOut, Menu,
   Moon, Plus, Settings, Sun, User, BarChart3,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils'
 
 const NAV = [
   { href: '/dashboard', label: 'نمای کلی', icon: LayoutDashboard },
+  { href: '/dashboard/exams', label: 'پنل آزمون', icon: GraduationCap },
   { href: '/dashboard/forms', label: 'فرم‌های من', icon: FileStack },
   { href: '/dashboard/forms/new', label: 'ایجاد فرم جدید', icon: Plus },
   { href: '/dashboard/templates', label: 'قالب‌های آماده', icon: LayoutTemplate },

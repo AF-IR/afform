@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Sparkles,
   Lightbulb,
@@ -9,6 +9,7 @@ import {
   Loader2,
   RefreshCw,
   Database,
+  Gauge,
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -23,6 +24,12 @@ interface AiAnalysisCardProps {
   initial: SavedAiAnalysis | null
 }
 
+interface AiQuota {
+  plan: 'free' | 'pro'
+  generate: { used: number; limit: number | null }
+  analyze: { used: number; limit: number | null }
+}
+
 function modelLabel(model: string): string {
   if (model === 'zai-sdk') return 'GLM · Z.AI'
   return model.startsWith('glm') ? `GLM · ${model}` : model
@@ -32,6 +39,15 @@ export function AiAnalysisCard({ formId, hasResponses, initial }: AiAnalysisCard
   const [analysis, setAnalysis] = useState<SavedAiAnalysis | null>(initial)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [quota, setQuota] = useState<AiQuota | null>(null)
+
+  // daily AI quota (stored in Supabase) — shown next to the CTA
+  useEffect(() => {
+    fetch('/api/ai/usage')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d?.ok && setQuota(d))
+      .catch(() => {})
+  }, [])
 
   async function generate() {
     if (loading) return
@@ -39,11 +55,12 @@ export function AiAnalysisCard({ formId, hasResponses, initial }: AiAnalysisCard
     setError(null)
     try {
       const res = await fetch(`/api/forms/${formId}/ai-analysis`, { method: 'POST' })
-      const data = (await res.json()) as { ok?: boolean; error?: string; analysis?: SavedAiAnalysis }
+      const data = (await res.json()) as { ok?: boolean; error?: string; analysis?: SavedAiAnalysis; quota?: AiQuota }
       if (!res.ok || !data.ok || !data.analysis) {
         throw new Error(data.error ?? 'خطا در تولید تحلیل هوش مصنوعی')
       }
       setAnalysis(data.analysis)
+      if (data.quota) setQuota(data.quota)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'خطای شبکه؛ دوباره تلاش کنید')
     } finally {
@@ -170,6 +187,18 @@ export function AiAnalysisCard({ formId, hasResponses, initial }: AiAnalysisCard
             </Button>
             {hasResponses && !loading && (
               <p className="mt-2 text-[11px] text-muted-foreground">این عملیات معمولاً چند ثانیه تا یک دقیقه زمان می‌برد.</p>
+            )}
+            {quota && hasResponses && !loading && (
+              <p className="mt-2 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+                <Gauge className="h-3 w-3" aria-hidden />
+                {quota.plan === 'pro' || quota.analyze.limit === null ? (
+                  <span className="font-medium text-primary">پلن حرفه‌ای — تحلیل روزانه نامحدود</span>
+                ) : (
+                  <span>
+                    سهمیه امروز: {faNumber(quota.analyze.limit - quota.analyze.used)} از {faNumber(quota.analyze.limit)} تحلیل باقی‌مانده (پلن رایگان)
+                  </span>
+                )}
+              </p>
             )}
           </div>
         )}

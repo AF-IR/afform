@@ -23,6 +23,8 @@ interface ResponseRow {
   submittedAt: string
   status: string
   totalScore: number | null
+  respondentName?: string | null
+  respondentNationalId?: string | null
   answers: Record<string, AnswerValue>
 }
 
@@ -80,6 +82,7 @@ export function ResponsesClient({ formId, formType }: { formId: string; formType
   }
 
   const pages = Math.max(1, Math.ceil(total / limit))
+  const showIdentity = rows.some((r) => r.respondentName || r.respondentNationalId)
 
   function stringifyValue(question: Question | undefined, value: AnswerValue): string {
     if (value === null || value === undefined || question === undefined) return '—'
@@ -158,6 +161,7 @@ export function ResponsesClient({ formId, formType }: { formId: string; formType
             <TableHeader>
               <TableRow>
                 <TableHead className="min-w-40">زمان ثبت</TableHead>
+                {showIdentity && <TableHead>پاسخ‌دهنده</TableHead>}
                 {formType === 'quiz' && <TableHead>نمره</TableHead>}
                 <TableHead>وضعیت</TableHead>
                 <TableHead className="text-left">عملیات</TableHead>
@@ -166,20 +170,30 @@ export function ResponsesClient({ formId, formType }: { formId: string; formType
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="py-10 text-center">
+                  <TableCell colSpan={formType === 'quiz' ? 5 : 4} className="py-10 text-center">
                     <Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
                   </TableCell>
                 </TableRow>
               ) : rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="py-10 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={formType === 'quiz' ? 5 : 4} className="py-10 text-center text-sm text-muted-foreground">
                     هنوز پاسخی ثبت نشده است. پس از انتشار فرم و دریافت پاسخ‌ها، اینجا نمایش داده می‌شوند.
                   </TableCell>
                 </TableRow>
               ) : (
                 rows.map((r) => (
-                  <TableRow key={r.responseId}>
+                  <TableRow key={r.responseId} className="transition-colors hover:bg-muted/40">
                     <TableCell>{faDate(r.submittedAt, true)}</TableCell>
+                    {showIdentity && (
+                      <TableCell>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">{r.respondentName || '—'}</p>
+                          {r.respondentNationalId && (
+                            <p className="text-xs text-muted-foreground" dir="ltr">{r.respondentNationalId}</p>
+                          )}
+                        </div>
+                      </TableCell>
+                    )}
                     {formType === 'quiz' && (
                       <TableCell>
                         {r.totalScore === null ? '—' : faNumber(r.totalScore, { maximumFractionDigits: 1 })}
@@ -228,6 +242,8 @@ export function ResponsesClient({ formId, formType }: { formId: string; formType
             <DialogTitle>جزئیات پاسخ</DialogTitle>
             <DialogDescription>
               ثبت‌شده در {faDate(detail?.submittedAt, true)}
+              {detail?.respondentName ? <> — {detail.respondentName}</> : null}
+              {detail?.respondentNationalId ? <> — کد ملی <span dir="ltr">{detail.respondentNationalId}</span></> : null}
               {detail?.totalScore !== null && detail?.totalScore !== undefined && formType === 'quiz' && (
                 <> — نمره: {faNumber(detail.totalScore, { maximumFractionDigits: 1 })}</>
               )}

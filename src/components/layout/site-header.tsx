@@ -8,7 +8,7 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/s
 import {
   Menu, Moon, Sun, ChevronDown, FilePlus2, LayoutTemplate, FileStack,
   BarChart3, Sparkles, CircleHelp, ShieldCheck, Download, Zap,
-  Info, ScrollText, Lock, Mail,
+  Info, ScrollText, Lock, Mail, BookOpen, Briefcase,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { FooterContactLinks } from '@/components/layout/footer-contact-links'
@@ -31,13 +31,15 @@ const PRODUCT_ITEMS = [
   { href: '/dashboard/templates', icon: LayoutTemplate, title: 'قالب‌های آماده', desc: '۱۰ قالب کاربردی برای شروع سریع' },
   { href: '/dashboard/forms', icon: FileStack, title: 'مدیریت پاسخ‌ها', desc: 'جست‌وجو، فیلتر و حذف پاسخ‌های دریافتی' },
   { href: '/features', icon: BarChart3, title: 'گزارش و تحلیل', desc: 'نمودارهای مبتنی بر داده واقعی' },
-  { href: '/features', icon: Sparkles, title: 'انواع سؤال', desc: 'از متن کوتاه تا ماتریس و بارگذاری فایل' },
-  { href: '/faq', icon: CircleHelp, title: 'پرسش‌های متداول', desc: 'پاسخ سؤال‌های رایج درباره سرویس' },
+  { href: '/docs/question-types', icon: Sparkles, title: 'انواع سؤال', desc: 'مرجع کامل ۲۲ نوع سؤال آزمون و پرسشنامه' },
+  { href: '/docs', icon: BookOpen, title: 'مستندات', desc: 'راهنمای کامل کار با همه امکانات' },
 ]
 
 const RESOURCES = [
+  { href: '/docs', icon: BookOpen, title: 'مستندات کامل', desc: 'راهنمای ۲۲ نوع سؤال، آزمون امن، خروجی و AI' },
   { href: '/about', icon: Info, title: 'درباره آرشام فرم', desc: 'معرفی محصول و اهداف آن' },
   { href: '/templates', icon: LayoutTemplate, title: 'قالب‌های آماده', desc: 'مرور همه ۱۰ قالب در ۵ دسته' },
+  { href: '/use-cases', icon: Briefcase, title: 'راهنماهای کاربردی', desc: 'آزمون، رضایت مشتری، ثبت‌نام و استخدام' },
   { href: '/plans', icon: Zap, title: 'پلن‌های استفاده', desc: 'پلن رایگان فعلی و امکانات پیش‌رو' },
   { href: '/faq', icon: CircleHelp, title: 'پرسش‌های متداول', desc: 'پاسخ سؤال‌های رایج درباره سرویس' },
   { href: '/terms', icon: ScrollText, title: 'شرایط استفاده', desc: 'قواعد استفاده از سرویس' },

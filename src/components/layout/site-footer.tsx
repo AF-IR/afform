@@ -1,11 +1,12 @@
 import Link from 'next/link'
 import { BrandMark } from '@/components/layout/site-header'
 import { FooterContactLinks } from '@/components/layout/footer-contact-links'
+import { DOC_PAGES, docHref } from '@/lib/docs/content'
 
 export function SiteFooter() {
   return (
     <footer className="mt-auto border-t bg-muted/40 pb-[env(safe-area-inset-bottom)]">
-      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 sm:grid-cols-2 lg:grid-cols-6">
         <div className="lg:col-span-2">
           <div className="flex items-center gap-2.5 font-extrabold">
             <BrandMark className="h-8 w-8" />
@@ -28,7 +29,20 @@ export function SiteFooter() {
             <li><Link href="/features" className="hover:text-foreground">قابلیت‌ها</Link></li>
             <li><Link href="/templates" className="hover:text-foreground">قالب‌های آماده</Link></li>
             <li><Link href="/plans" className="hover:text-foreground">پلن‌ها</Link></li>
+            <li><Link href="/use-cases" className="hover:text-foreground">راهنماهای کاربردی</Link></li>
             <li><Link href="/register" className="hover:text-foreground">ثبت‌نام رایگان</Link></li>
+          </ul>
+        </nav>
+
+        <nav aria-label="مستندات">
+          <h2 className="text-sm font-bold">مستندات</h2>
+          <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+            <li><Link href="/docs" className="hover:text-foreground">همه مستندات</Link></li>
+            {DOC_PAGES.slice(0, 4).map((d) => (
+              <li key={d.slug}>
+                <Link href={docHref(d.slug)} className="hover:text-foreground">{d.title}</Link>
+              </li>
+            ))}
           </ul>
         </nav>
 

@@ -12,6 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
+import { MathText } from '@/components/questions/math-text'
 import {
   OTHER_CHOICE_ID,
   type AnswerValue,
@@ -70,15 +71,15 @@ export function QuestionRenderer({
   if (q.type === 'info') {
     return (
       <div className="rounded-xl border bg-accent/40 p-4" role="note">
-        <h3 className="font-bold">{q.title}</h3>
-        {q.description && <p className="mt-1 text-sm leading-6 text-muted-foreground">{q.description}</p>}
+        <h3 className="font-bold"><MathText text={q.title} /></h3>
+        {q.description && <p className="mt-1 text-sm leading-6 text-muted-foreground"><MathText text={q.description} /></p>}
       </div>
     )
   }
   if (q.type === 'separator') {
     return (
       <div role="separator" className="py-2">
-        {q.title && <p className="mb-2 text-sm font-bold text-muted-foreground">{q.title}</p>}
+        {q.title && <p className="mb-2 text-sm font-bold text-muted-foreground"><MathText text={q.title} /></p>}
         <hr />
       </div>
     )
@@ -125,8 +126,21 @@ export function QuestionRenderer({
     }
   }
 
+  const questionImage = q.config.imageUrl ? (
+    <div className="mb-3 overflow-hidden rounded-lg border bg-muted/30">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={q.config.imageUrl}
+        alt={`تصویر صورت سوال ${number !== undefined ? faNumber(number) : ''}`.trim()}
+        className="max-h-96 w-full object-contain"
+        loading="lazy"
+      />
+    </div>
+  ) : null
+
   const label = (
     <div className="mb-1.5">
+      {questionImage}
       <Label asChild>
         <h3 className="text-sm font-bold leading-7">
           {number !== undefined && (
@@ -134,11 +148,11 @@ export function QuestionRenderer({
               {faNumber(number)}
             </span>
           )}
-          {q.title || 'سؤال بدون عنوان'}
+          <MathText text={q.title || 'سؤال بدون عنوان'} />
           {q.required && <span className="mr-1 text-destructive">*</span>}
         </h3>
       </Label>
-      {q.description && <p className="text-xs leading-5 text-muted-foreground">{q.description}</p>}
+      {q.description && <p className="text-xs leading-5 text-muted-foreground"><MathText text={q.description} /></p>}
     </div>
   )
 
