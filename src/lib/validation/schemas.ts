@@ -48,6 +48,8 @@ const configSchema = z.object({
   cols: z.array(z.string().min(1).max(300)).max(20).optional(),
   maxSizeMB: z.number().min(0.1).max(20).optional(),
   allowedTypes: z.array(z.string().max(100)).max(20).optional(),
+  /** question image (صورت سوال) — client-resized JPEG data URL (≤ ~280 KB) */
+  imageUrl: z.string().max(400_000).refine((v) => v === '' || v.startsWith('data:image/'), { message: 'تصویر نامعتبر است' }).optional(),
   minDate: z.string().max(10).optional(),
   maxDate: z.string().max(10).optional(),
 })
@@ -107,6 +109,24 @@ export const questionsPayloadSchema = z.object({
 
 // ---------- settings ----------
 
+/** Secure-exam identity gate — whitelist + one-entry rules are enforced server-side. */
+export const identityGateSchema = z.object({
+  enabled: z.boolean().default(false),
+  requireFullName: z.boolean().default(true),
+  requireNationalId: z.boolean().default(true),
+  allowedNationalIds: z.array(z.string().regex(/^\d{10}$/)).max(50_000).default([]),
+})
+
+/** Exam access accounts (username/password per participant, defined by the creator). */
+export const examAccountsSchema = z.object({
+  enabled: z.boolean().default(false),
+  accounts: z.array(z.object({
+    username: z.string().min(2).max(64),
+    password: z.string().min(1).max(64),
+    name: z.string().max(120).optional(),
+  })).max(2000).default([]),
+})
+
 export const formSettingsSchema = z.object({
   thankYouMessage: z.string().max(2000).default('پاسخ شما با موفقیت ثبت شد. سپاس از همکاری شما.'),
   showProgressBar: z.boolean().default(true),
@@ -123,6 +143,10 @@ export const formSettingsSchema = z.object({
   maxAttempts: z.number().int().min(1).max(100).nullable().default(null),
   passingScorePercent: z.number().min(0).max(100).nullable().default(null),
   showResultImmediately: z.boolean().default(false),
+  identityGate: identityGateSchema.nullable().default(null),
+  examAccounts: examAccountsSchema.nullable().default(null),
+  resultRelease: z.enum(['immediately', 'afterEnd', 'scheduled']).default('immediately'),
+  resultReleaseAt: z.string().datetime({ offset: true }).nullable().default(null),
 })
 
 export const formCreateSchema = z.object({
@@ -155,6 +179,29 @@ export const answerValueSchema: z.ZodType<AnswerValue> = z.any()
 export const submitSchema = z.object({
   attemptToken: z.string().max(2048).optional(),
   answers: z.record(z.string().max(64), z.any()).default({}),
+  /** secure-exam identity (validated server-side against the whitelist) */
+  identity: z.object({
+    fullName: z.string().max(120).optional(),
+    nationalId: z.string().max(40).optional(),
+  }).optional(),
+  /** exam access account credentials (validated server-side on every call) */
+  exam: z.object({
+    username: z.string().max(64),
+    password: z.string().max(64),
+  }).optional(),
+  editResponseId: z.string().max(64).optional(),
+})
+
+/** Identity payload for starting a gated exam. */
+export const startExamSchema = z.object({
+  identity: z.object({
+    fullName: z.string().max(120).optional(),
+    nationalId: z.string().max(40).optional(),
+  }).optional(),
+  exam: z.object({
+    username: z.string().max(64),
+    password: z.string().max(64),
+  }).optional(),
 })
 
 // ---------- auth ----------

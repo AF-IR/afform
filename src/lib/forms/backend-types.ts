@@ -16,6 +16,13 @@ export interface ExportRow {
   totalScore: number | null
   maxScore: number | null
   passed: boolean | null
+  /** exam attempt start (server clock) — used for result-release timing */
+  startedAt: string | null
+  /** hashed respondent key (exam-account attribution; owner-side only) */
+  respondentKey?: string
+  /** secure-exam identity (stored at submit time) */
+  respondentName: string | null
+  respondentNationalId: string | null
   answers: Record<string, AnswerValue>
 }
 
@@ -39,6 +46,9 @@ export interface InsertResponseInput {
   passed?: boolean | null
   attemptNumber?: number
   startedAt?: string | null
+  /** secure-exam identity captured at submit time */
+  respondentName?: string | null
+  respondentNationalId?: string | null
   answers: Record<string, AnswerValue>
 }
 
@@ -51,10 +61,16 @@ export interface FormsBackend {
   deleteForm(formId: string, ownerId: string): Promise<boolean>
   duplicateForm(formId: string, ownerId: string): Promise<FormSummary | null>
   saveQuestions(formId: string, ownerId: string, questions: Question[]): Promise<boolean>
+  /** Ids from the payload that already exist on a DIFFERENT form (must be rejected). */
+  findForeignQuestionIds(formId: string, questionIds: string[]): Promise<string[]>
   insertResponse(input: InsertResponseInput): Promise<string>
   updateResponseAnswers(responseId: string, formId: string, respondentKey: string, answers: Record<string, AnswerValue>): Promise<boolean>
   countResponses(formId: string): Promise<number>
   countAttempts(formId: string, respondentKey: string): Promise<number>
+  /** Latest response of a respondent key (exam result lookup by account). */
+  getLatestResponseByKey(formId: string, respondentKey: string): Promise<ExportRow | null>
+  /** How many responses this form already has for a normalized national ID (secure exam one-entry rule). */
+  countByNationalId(formId: string, nationalId: string): Promise<number>
   listResponses(formId: string, opts: ListResponsesOpts): Promise<{ rows: ExportRow[]; total: number }>
   searchResponseIds(formId: string, term: string): Promise<string[]>
   getResponseDetail(formId: string, responseId: string): Promise<ExportRow | null>

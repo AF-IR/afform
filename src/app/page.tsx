@@ -2,7 +2,7 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 import {
   FileText, ClipboardList, BarChart3, ShieldCheck, Sparkles, Link2, Users,
-  Timer, GitBranch, Download, LayoutTemplate, CheckCircle2, Star, Lock,
+  Timer, GitBranch, Download, LayoutTemplate, CheckCircle2, Star, Lock, BookOpen,
 } from 'lucide-react'
 import { SiteHeader } from '@/components/layout/site-header'
 import { SiteFooter } from '@/components/layout/site-footer'
@@ -12,25 +12,45 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { getCurrentUser } from '@/lib/auth/service'
 import { templates } from '@/lib/templates/data'
-import { FAQ_SCHEMA } from '@/lib/seo'
+import { FAQ_SCHEMA, USP_HEADLINE, USP_TEXT, EXPORT_USP_HEADLINE, EXPORT_USP_TEXT } from '@/lib/seo'
+import { DOC_PAGES, docHref } from '@/lib/docs/content'
 
 export const metadata: Metadata = {
-  title: 'آرشام فرم | فرم بساز، آزمون برگزار کن، پاسخ‌ها را تحلیل کن',
+  title: 'آرشام فرم | ساخت پرسشنامه با هوش مصنوعی، رایگان و تحلیل نتایج',
   description:
-    'بدون کدنویسی فرم حرفه‌ای بسازید: پرسشنامه، نظرسنجی، آزمون آنلاین با نمره‌دهی خودکار، لینک اختصاصی و داشبورد تحلیل پاسخ‌ها.',
+    'با هوش مصنوعی رایگان پرسشنامه بسازید و نتایج را تحلیل کنید: آزمون آنلاین امن با نمره خودکار، لینک اختصاصی، خروجی اکسل و JSON از پاسخ‌ها — بدون کدنویسی.',
   alternates: { canonical: '/' },
+  keywords: [
+    'ساخت پرسشنامه با هوش مصنوعی', 'پرسشنامه هوش مصنوعی رایگان', 'تحلیل نتایج پرسشنامه با هوش مصنوعی',
+    'فرم ساز آنلاین', 'آزمون آنلاین', 'نظرسنجی آنلاین', 'خروجی اکسل نتایج پرسشنامه', 'آرشام فرم',
+  ],
 }
 
 const FEATURES = [
+  {
+    icon: Sparkles,
+    title: 'ساخت پرسشنامه با هوش مصنوعی',
+    text: 'فقط موضوع را بنویسید؛ مدل زبانی سؤال‌ها، گزینه‌ها و در آزمون‌ها پاسخ صحیح و امتیاز را طراحی می‌کند — کاملاً رایگان و قابل ویرایش.',
+  },
   {
     icon: ClipboardList,
     title: 'سازنده فرم بدون کدنویسی',
     text: '۲۲ نوع سؤال از متن کوتاه تا ماتریس و بارگذاری فایل؛ اجباری/اختیاری کردن، محدودیت طول و حداقل/حداکثر انتخاب.',
   },
   {
+    icon: BarChart3,
+    title: 'تحلیل هوش مصنوعی نتایج',
+    text: 'مدل، متن واقعی پاسخ‌ها را می‌خواند و خلاصه، یافته‌های کلیدی و پیشنهاد عملی فارسی می‌دهد — نه فقط نمودار، بلکه بینش.',
+  },
+  {
     icon: Timer,
     title: 'آزمون واقعی با نمره‌دهی خودکار',
     text: 'تعریف پاسخ صحیح و امتیاز هر سؤال، مدت آزمون با کنترل زمان سمت سرور، سقف تلاش و نمره قبولی.',
+  },
+  {
+    icon: Lock,
+    title: 'ورود به آزمون با اکانت دانش‌آموز',
+    text: 'برای هر دانش‌آموز نام کاربری و رمز تعریف می‌کنید (یا خودکار می‌سازید)؛ هر اکانت فقط یک بار می‌تواند شرکت کند و با همان اکانت نتیجه را می‌بیند.',
   },
   {
     icon: GitBranch,
@@ -43,14 +63,9 @@ const FEATURES = [
     text: 'هر فرم منتشرشده لینکی غیرقابل حدس مثل /f/a8d4f2c9 می‌گیرد؛ پیش‌نویس‌ها هرگز از لینک عمومی در دسترس نیستند.',
   },
   {
-    icon: BarChart3,
-    title: 'داشبورد تحلیل پاسخ‌ها',
-    text: 'تعداد پاسخ‌ها، توزیع گزینه‌ها، میانگین امتیازها، میانگین نمره آزمون و درصد قبولی — بر اساس داده واقعی.',
-  },
-  {
     icon: Download,
     title: 'خروجی CSV، Excel و JSON',
-    text: 'دریافت پاسخ‌ها در قالب دلخواه با ایمن‌سازی سلول‌ها؛ دسترسی و مالکیت در هر خروجی سمت سرور بررسی می‌شود.',
+    text: 'دریافت پاسخ‌ها در قالب دلخواه با ایمن‌سازی سلول‌ها؛ تحلیل را در ابزار خودتان آسان انجام دهید.',
   },
   {
     icon: LayoutTemplate,
@@ -147,22 +162,22 @@ export default async function LandingPage() {
             className="pointer-events-none absolute -top-32 left-1/2 h-96 w-[42rem] -translate-x-1/2 rounded-full bg-primary/15 blur-3xl"
           />
           <div className="relative mx-auto grid max-w-6xl items-center gap-10 px-4 py-16 md:grid-cols-2 md:py-24">
-            <div>
+            <div className="auth-stagger">
               <Badge variant="secondary" className="mb-4 gap-1 bg-primary/10 text-primary">
                 <Sparkles className="h-3.5 w-3.5" aria-hidden />
-                بدون نیاز به دانش برنامه‌نویسی
+                ساخت پرسشنامه با هوش مصنوعی — رایگان
               </Badge>
               <h1 className="text-3xl font-extrabold leading-[1.35] md:text-5xl md:leading-[1.3]">
-                فرم بساز، آزمون برگزار کن،
-                <span className="bg-gradient-to-l from-primary via-emerald-500 to-teal-600 bg-clip-text text-transparent"> پاسخ‌ها را تحلیل کن</span>
+                پرسش‌نامه را با هوش مصنوعی بساز،
+                <span className="bg-gradient-to-l from-primary via-emerald-500 to-teal-600 bg-clip-text text-transparent"> نتایج را تحلیل کن</span>
               </h1>
               <p className="mt-5 max-w-xl text-base leading-8 text-muted-foreground md:text-lg">
-                آرشام فرم پلتفرم آنلاین طراحی پرسشنامه، آزمون و فرم جمع‌آوری اطلاعات است.
-                فرم حرفه‌ای بسازید، لینک اختصاصی بگیرید و پاسخ‌ها را در داشبورد خود مدیریت و تحلیل کنید.
+                آرشام فرم؛ رایگان و بدون کدنویسی. با هوش مصنوعی پرسشنامه و آزمون بسازید، لینک اختصاصی بگیرید و
+                پاسخ‌ها را هم با داشبورد و هم با تحلیل هوش مصنوعی بررسی کنید — خروجی اکسل و JSON هم از آنِ شماست.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Button asChild size="lg" className="h-12 px-8 text-base shadow-md shadow-primary/25 transition-transform hover:-translate-y-0.5">
-                  <Link href="/dashboard/forms/new">ساخت فرم جدید</Link>
+                  <Link href={user ? '/dashboard/forms/new' : '/register'}>ساخت پرسشنامه با هوش مصنوعی</Link>
                 </Button>
                 {!user && (
                   <Button asChild size="lg" variant="outline" className="h-12 px-8 text-base">
@@ -176,8 +191,8 @@ export default async function LandingPage() {
             </div>
 
             {/* product preview card */}
-            <div className="relative">
-              <div aria-hidden className="absolute -inset-6 rounded-3xl bg-gradient-to-tr from-primary/15 via-transparent to-emerald-400/15 blur-2xl" />
+            <div className="relative auth-enter" style={{ animationDelay: '0.18s' }}>
+              <div aria-hidden className="absolute -inset-6 rounded-3xl bg-gradient-to-tr from-primary/15 via-transparent to-emerald-400/15 blur-2xl brand-glow" />
               <Card className="relative mx-auto w-full max-w-md shadow-xl ring-1 ring-black/5">
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
@@ -210,11 +225,11 @@ export default async function LandingPage() {
               </CardContent>
               </Card>
               {/* floating feature chips — real product capabilities */}
-              <div className="absolute -right-3 top-6 hidden items-center gap-1.5 rounded-full border bg-card px-3 py-1.5 text-xs font-bold shadow-md sm:flex">
+              <div className="absolute -right-3 top-6 hidden items-center gap-1.5 rounded-full border bg-card px-3 py-1.5 text-xs font-bold shadow-md auth-fade sm:flex">
                 <ClipboardList className="h-3.5 w-3.5 text-primary" aria-hidden />
                 ۲۲ نوع سؤال
               </div>
-              <div className="absolute -left-3 bottom-10 hidden items-center gap-1.5 rounded-full border bg-card px-3 py-1.5 text-xs font-bold shadow-md sm:flex">
+              <div className="absolute -left-3 bottom-10 hidden items-center gap-1.5 rounded-full border bg-card px-3 py-1.5 text-xs font-bold shadow-md auth-fade sm:flex">
                 <Timer className="h-3.5 w-3.5 text-primary" aria-hidden />
                 نمره‌دهی خودکار آزمون
               </div>
@@ -223,7 +238,7 @@ export default async function LandingPage() {
         </section>
 
         {/* ---------- fact strip (true product facts) ---------- */}
-        <section aria-label="آمار محصول" className="border-b bg-card">
+        <section aria-label="آمار محصول" className="fade-up border-b bg-card">
           <div className="mx-auto grid max-w-6xl grid-cols-2 gap-4 px-4 py-6 text-center sm:grid-cols-4">
             {[
               { value: '۲۲', label: 'نوع سؤال قابل استفاده' },
@@ -236,6 +251,45 @@ export default async function LandingPage() {
                 <p className="mt-1 text-xs text-muted-foreground md:text-sm">{s.label}</p>
               </div>
             ))}
+          </div>
+        </section>
+
+        {/* ---------- Signature USP: AI (primary keyword) ---------- */}
+        <section className="mx-auto max-w-6xl px-4 py-14" aria-labelledby="usp">
+          <div className="fade-up rounded-3xl border border-primary/20 bg-gradient-to-l from-primary/10 via-primary/5 to-transparent p-8 md:p-10">
+            <div className="grid items-center gap-6 md:grid-cols-[1fr_auto]">
+              <div>
+                <Badge variant="secondary" className="mb-3 bg-primary/10 text-primary">مزیت ویژه آرشام فرم</Badge>
+                <h2 id="usp" className="text-xl font-extrabold leading-snug md:text-2xl">{USP_HEADLINE}</h2>
+                <p className="mt-3 max-w-2xl leading-7 text-muted-foreground">{USP_TEXT}</p>
+              </div>
+              <div className="flex flex-col gap-2">
+                <Button asChild className="justify-center">
+                  <Link href={user ? '/dashboard/forms/new' : '/register'}>همین حالا امتحان کنید</Link>
+                </Button>
+                <Button asChild variant="outline" className="justify-center">
+                  <Link href="/docs/ai-features">راهنمای هوش مصنوعی</Link>
+                </Button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ---------- Secondary USP: free exports (Excel/JSON) ---------- */}
+        <section className="mx-auto max-w-6xl px-4 pb-14" aria-labelledby="usp-exports">
+          <div className="fade-up rounded-3xl border border-emerald-500/20 bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent p-8">
+            <div className="grid items-center gap-6 md:grid-cols-[1fr_auto]">
+              <div>
+                <Badge variant="secondary" className="mb-3 border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+                  تحلیل را آسان کنید
+                </Badge>
+                <h2 id="usp-exports" className="text-lg font-extrabold leading-snug md:text-xl">{EXPORT_USP_HEADLINE}</h2>
+                <p className="mt-2 max-w-2xl text-sm leading-7 text-muted-foreground">{EXPORT_USP_TEXT}</p>
+              </div>
+              <Button asChild variant="outline" className="justify-center">
+                <Link href="/docs/exports-reports">راهنمای خروجی‌ها</Link>
+              </Button>
+            </div>
           </div>
         </section>
 
@@ -374,6 +428,34 @@ export default async function LandingPage() {
             استفاده از پلن رایگان بدون پرداخت است؛ سقف واقعی مصرف به محدودیت‌های پلن رایگان سرویس‌های زیرساخت
             (Vercel و Supabase) بستگی دارد که در راهنمای استقرار مستند شده است.
           </p>
+        </section>
+
+        {/* ---------- Docs & guides ---------- */}
+        <section className="mx-auto max-w-6xl px-4 py-16" aria-labelledby="docs-title">
+          <h2 id="docs-title" className="text-center text-2xl font-extrabold md:text-3xl">مستندات کامل و راهنماهای کاربردی</h2>
+          <p className="mx-auto mt-3 max-w-2xl text-center text-muted-foreground">
+            برای هر سؤال، یک راهنمای مفصل فارسی: از انتخاب نوع سؤال تا امنیت آزمون و تحلیل داده
+          </p>
+          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {DOC_PAGES.map((d) => (
+              <Link key={d.slug} href={docHref(d.slug)} className="group">
+                <div className="flex h-full items-start gap-3 rounded-xl border bg-card p-4 transition-all group-hover:-translate-y-0.5 group-hover:border-primary/40 group-hover:shadow-md">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <BookOpen className="h-4 w-4" aria-hidden />
+                  </span>
+                  <span>
+                    <span className="block text-sm font-bold group-hover:text-primary">{d.title}</span>
+                    <span className="mt-1 block text-xs leading-6 text-muted-foreground">{d.description}</span>
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+          <div className="mt-6 text-center">
+            <Button asChild variant="ghost">
+              <Link href="/docs">مشاهده همه مستندات ←</Link>
+            </Button>
+          </div>
         </section>
 
         {/* ---------- FAQ ---------- */}

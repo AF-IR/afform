@@ -67,30 +67,12 @@ export function respondentKey(ip: string, userAgent: string): string {
   return sha256(`rk:${ip}:${userAgent}`).slice(0, 40)
 }
 
-/** HMAC-signed attempt token for timed quizzes (server validates elapsed time). */
-export interface AttemptPayload {
-  formId: string
-  startedAt: number // epoch ms
-  key: string // respondent key
-}
-
-export function signAttemptToken(payload: AttemptPayload): string {
-  const body = b64url(JSON.stringify(payload))
-  const sig = crypto.createHmac('sha256', getSecret()).update(`attempt:${body}`).digest('base64url')
-  return `${body}.${sig}`
-}
-
-export function verifyAttemptToken(token: string | undefined | null): AttemptPayload | null {
-  if (!token) return null
-  const [body, sig] = token.split('.')
-  if (!body || !sig) return null
-  const expected = crypto.createHmac('sha256', getSecret()).update(`attempt:${body}`).digest('base64url')
-  const a = Buffer.from(sig)
-  const b = Buffer.from(expected)
-  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null
-  try {
-    return JSON.parse(Buffer.from(body, 'base64url').toString()) as AttemptPayload
-  } catch {
-    return null
-  }
-}
+/**
+ * Attempt-token signing now lives in @/lib/exam/attempt (pure, testable,
+ * production-resilient secret). Re-exported here for existing call sites.
+ */
+export {
+  signAttemptToken,
+  verifyAttemptToken,
+  type AttemptPayload,
+} from '@/lib/exam/attempt'

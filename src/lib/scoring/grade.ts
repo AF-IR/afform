@@ -54,6 +54,11 @@ function isCorrect(q: Question, answer: unknown): boolean | null {
   }
 }
 
+/** Public wrapper for report aggregation — was this specific answer correct? */
+export function isAnswerCorrect(q: Question, answer: unknown): boolean | null {
+  return isCorrect(q, answer)
+}
+
 export function maxAchievableScore(questions: Question[]): number {
   return questions.reduce((sum, q) => sum + (q.scoring?.points ?? 0), 0)
 }

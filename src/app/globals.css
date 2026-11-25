@@ -166,3 +166,100 @@ input, textarea, select {
     radial-gradient(circle at 1px 1px, oklch(0.52 0.14 175 / 0.12) 1px, transparent 0);
   background-size: 24px 24px;
 }
+
+/* ---------- page & content transitions (پویایی سایت) ---------- */
+@keyframes page-fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+.page-transition {
+  animation: page-fade-up 0.32s ease-out both;
+}
+@keyframes soft-fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+.fade-up {
+  animation: soft-fade-up 0.4s ease-out both;
+}
+/* staggered card entrances — use with inline animation-delay */
+.fade-up-stagger > * {
+  animation: soft-fade-up 0.4s ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-transition, .fade-up, .fade-up-stagger > * {
+    animation: none;
+  }
+  html { scroll-behavior: auto; }
+}
+
+/* ---------- auth scene — ورود/ثبت‌نام با افکت ورود نرم ---------- */
+.auth-scene {
+  background-image:
+    radial-gradient(circle at 1px 1px, oklch(0.52 0.14 175 / 0.08) 1px, transparent 0);
+  background-size: 22px 22px;
+}
+@keyframes auth-blob-drift {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  50%  { transform: translate3d(18px, -14px, 0) scale(1.08); }
+  100% { transform: translate3d(0, 0, 0) scale(1); }
+}
+.auth-blob {
+  animation: auth-blob-drift 9s ease-in-out infinite;
+}
+.auth-blob-slow {
+  animation-duration: 13s;
+  animation-delay: -4s;
+}
+@keyframes auth-enter-up {
+  from { opacity: 0; transform: translateY(22px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+.auth-enter {
+  animation: auth-enter-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes auth-pop-in {
+  0%   { opacity: 0; transform: scale(0.55) rotate(-6deg); }
+  70%  { opacity: 1; transform: scale(1.06) rotate(2deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0); }
+}
+.auth-pop {
+  animation: auth-pop-in 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.15s both;
+}
+@keyframes auth-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.auth-fade {
+  animation: auth-fade-in 0.6s ease-out 0.5s both;
+}
+/* staggered field entrance inside auth cards */
+.auth-stagger > * {
+  animation: auth-enter-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.auth-stagger > *:nth-child(1) { animation-delay: 0.05s; }
+.auth-stagger > *:nth-child(2) { animation-delay: 0.12s; }
+.auth-stagger > *:nth-child(3) { animation-delay: 0.19s; }
+.auth-stagger > *:nth-child(4) { animation-delay: 0.26s; }
+.auth-stagger > *:nth-child(5) { animation-delay: 0.33s; }
+.auth-stagger > *:nth-child(6) { animation-delay: 0.4s; }
+/* gentle lift on hover for primary auth CTA */
+.auth-lift {
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s ease, background-color 0.2s ease;
+}
+.auth-lift:hover { transform: translateY(-2px); }
+.auth-lift:active { transform: translateY(0); }
+/* soft glow pulse behind the brand mark */
+@keyframes brand-glow {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50%      { opacity: 0.9; transform: scale(1.12); }
+}
+.brand-glow {
+  animation: brand-glow 3.2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .auth-blob, .auth-blob-slow, .auth-enter, .auth-pop, .auth-fade,
+  .auth-stagger > *, .brand-glow {
+    animation: none;
+  }
+}

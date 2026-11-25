@@ -1,6 +1,50 @@
 export const SITE_NAME = 'آرشام فرم'
 export const SITE_TAGLINE = 'سامانه طراحی پرسشنامه و آزمون آنلاین'
 
+/**
+ * The PRIMARY selling proposition (main SEO keyword family):
+ * free AI questionnaire building + free AI analysis — repeated across
+ * the hero, docs banner and landing sections.
+ */
+export const USP_HEADLINE = 'ساخت پرسشنامه با هوش مصنوعی — رایگان بساز، رایگان تحلیل کن'
+export const USP_TEXT =
+  'فقط موضوع را بنویسید؛ آرشام فرم با هوش مصنوعی یک پرسشنامه کامل فارسی می‌سازد، پاسخ‌ها را با مدل زبانی تحلیل می‌کند و خلاصه، یافته‌ها و پیشنهاد عملی به شما می‌دهد — بدون هزینه، بدون کدنویسی.'
+
+/**
+ * The SECONDARY USP (kept deliberately for the exports doc page and the
+ * features page): free standard-format exports of questionnaire results.
+ */
+export const EXPORT_USP_HEADLINE = 'تنها پلتفرم فارسی رایگان که خروجی JSON، اکسل و CSV از نتایج پرسشنامه می‌دهد'
+export const EXPORT_USP_TEXT =
+  'پاسخ‌ها را در قالب Excel و JSON و CSV دانلود کنید و تحلیل را در ابزار خودتان آسان انجام دهید — بدون هزینه و بدون محدودیت.'
+
+/** JSON-LD breadcrumb trail for any page. */
+export function breadcrumbSchema(items: { name: string; href?: string }[]) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: items.map((item, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: item.name,
+      ...(item.href ? { item: item.href } : {}),
+    })),
+  }
+}
+
+/** Build a FAQPage schema from simple q/a pairs (used per doc/use-case page). */
+export function buildFaqSchema(faqs: { q: string; a: string }[]) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqs.map((f) => ({
+      '@type': 'Question',
+      name: f.q,
+      acceptedAnswer: { '@type': 'Answer', text: f.a },
+    })),
+  }
+}
+
 export const FAQ_SCHEMA = {
   '@context': 'https://schema.org',
   '@type': 'FAQPage',

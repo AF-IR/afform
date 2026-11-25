@@ -85,7 +85,9 @@ export async function registerUser(input: {
       password: input.password,
       options: {
         data: { display_name: input.displayName },
-        emailRedirectTo: `${getOrigin()}/auth/callback`,
+        // after the user confirms via the email link, land on the dedicated
+        // welcome page (which guides them to login — the link does not sign in)
+        emailRedirectTo: `${getOrigin()}/auth/callback?next=/auth/welcome`,
       },
     })
     if (error) return { ok: false, error: faAuthError(error.message) }

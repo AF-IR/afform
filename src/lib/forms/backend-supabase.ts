@@ -81,6 +81,12 @@ function mapError(err: { message?: string } | null): string | null {
   return err.message ?? 'خطای ناشناخته'
 }
 
+/** PostgREST signal: a column exists in code but not (yet) in the database. */
+function isMissingColumnError(message: string | null | undefined): boolean {
+  if (!message) return false
+  return /Could not find the .* column/i.test(message) || /column .* does not exist/i.test(message) || /PGRST204/i.test(message)
+}
+
 export const supabaseBackend: FormsBackend = {
   async listForms(ownerId) {
     const sb = await userClient()
@@ -205,6 +211,17 @@ export const supabaseBackend: FormsBackend = {
     return copy
   },
 
+  async findForeignQuestionIds(formId, questionIds) {
+    if (!questionIds.length) return []
+    const sb = await userClient()
+    const { data } = await sb
+      .from('questions')
+      .select('id, form_id')
+      .in('id', questionIds)
+      .neq('form_id', formId)
+    return ((data ?? []) as Row[]).map((r) => str(r.id))
+  },
+
   async saveQuestions(formId, ownerId, questions) {
     const sb = await userClient()
     // verify ownership (RLS also enforces this)
@@ -242,21 +259,33 @@ export const supabaseBackend: FormsBackend = {
 
   async insertResponse(input: InsertResponseInput): Promise<string> {
     const admin = adminClient()
-    const { data, error } = await admin
-      .from('responses')
-      .insert({
-        form_id: input.formId,
-        respondent_id: input.respondentId ?? null,
-        respondent_key: input.respondentKey,
-        status: input.status ?? 'submitted',
-        total_score: input.totalScore ?? null,
-        max_score: input.maxScore ?? null,
-        passed: input.passed ?? null,
-        attempt_number: input.attemptNumber ?? 1,
-        started_at: input.startedAt ?? null,
-      })
-      .select('id')
-      .single()
+    const full = {
+      form_id: input.formId,
+      respondent_id: input.respondentId ?? null,
+      respondent_key: input.respondentKey,
+      status: input.status ?? 'submitted',
+      total_score: input.totalScore ?? null,
+      max_score: input.maxScore ?? null,
+      passed: input.passed ?? null,
+      attempt_number: input.attemptNumber ?? 1,
+      started_at: input.startedAt ?? null,
+      respondent_name: input.respondentName ?? null,
+      respondent_national_id: input.respondentNationalId ?? null,
+    }
+    let { data, error } = await admin.from('responses').insert(full).select('id').single()
+
+    // Resilience: if the production database has not received migration 0003
+    // (respondent_name / respondent_national_id), PostgREST fails with
+    // “Could not find the … column … in the schema cache”. Submission must
+    // still succeed — retry without the optional identity columns.
+    if (error && isMissingColumnError(error.message)) {
+      const retry: Row = { ...full }
+      delete retry.respondent_name
+      delete retry.respondent_national_id
+      const second = await admin.from('responses').insert(retry).select('id').single()
+      data = second.data
+      error = second.error
+    }
     if (error) throw new Error(mapError(error) ?? '')
     const responseId = str((data as Row).id)
     const entries = Object.entries(input.answers)
@@ -310,6 +339,51 @@ export const supabaseBackend: FormsBackend = {
     return count ?? 0
   },
 
+  async countByNationalId(formId, nationalId) {
+    // Degrade gracefully when migration 0003 has not been applied yet —
+    // an infrastructure gap must never 500 the public submission flow.
+    try {
+      const admin = adminClient()
+      const { count } = await admin
+        .from('responses')
+        .select('id', { count: 'exact', head: true })
+        .eq('form_id', formId)
+        .eq('respondent_national_id', nationalId)
+      return count ?? 0
+    } catch {
+      return 0
+    }
+  },
+
+  async getLatestResponseByKey(formId, respondentKey) {
+    const admin = adminClient()
+    const { data, error } = await admin
+      .from('responses')
+      .select('*, answers(question_id, answer_value)')
+      .eq('form_id', formId)
+      .eq('respondent_key', respondentKey)
+      .order('submitted_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (error) throw new Error(mapError(error) ?? '')
+    if (!data) return null
+    const r = data as Row
+    return {
+      responseId: str(r.id),
+      submittedAt: str(r.submitted_at),
+      status: str(r.status, 'submitted'),
+      totalScore: (r.total_score as number | null) ?? null,
+      maxScore: (r.max_score as number | null) ?? null,
+      passed: (r.passed as boolean | null) ?? null,
+      startedAt: (r.started_at as string | null) ?? null,
+      respondentName: (r.respondent_name as string | null) ?? null,
+      respondentNationalId: (r.respondent_national_id as string | null) ?? null,
+      answers: Object.fromEntries(
+        ((r.answers as { question_id: string; answer_value: AnswerValue }[] | null) ?? []).map((a) => [a.question_id, a.answer_value]),
+      ) as Record<string, AnswerValue>,
+    }
+  },
+
   async listResponses(formId, opts: ListResponsesOpts) {
     const sb = await userClient()
     let query = sb
@@ -332,6 +406,10 @@ export const supabaseBackend: FormsBackend = {
       totalScore: (r.total_score as number | null) ?? null,
       maxScore: (r.max_score as number | null) ?? null,
       passed: (r.passed as boolean | null) ?? null,
+      startedAt: (r.started_at as string | null) ?? null,
+      respondentKey: str(r.respondent_key),
+      respondentName: (r.respondent_name as string | null) ?? null,
+      respondentNationalId: (r.respondent_national_id as string | null) ?? null,
       answers: Object.fromEntries(
         ((r.answers as { question_id: string; answer_value: AnswerValue }[] | null) ?? []).map((a) => [a.question_id, a.answer_value]),
       ) as Record<string, AnswerValue>,
@@ -372,6 +450,9 @@ export const supabaseBackend: FormsBackend = {
       totalScore: (r.total_score as number | null) ?? null,
       maxScore: (r.max_score as number | null) ?? null,
       passed: (r.passed as boolean | null) ?? null,
+      startedAt: (r.started_at as string | null) ?? null,
+      respondentName: (r.respondent_name as string | null) ?? null,
+      respondentNationalId: (r.respondent_national_id as string | null) ?? null,
       answers: Object.fromEntries(
         ((r.answers as { question_id: string; answer_value: AnswerValue }[] | null) ?? []).map((a) => [a.question_id, a.answer_value]),
       ),
@@ -385,16 +466,23 @@ export const supabaseBackend: FormsBackend = {
   },
 
   async getAnswerValues(formId) {
-    const sb = await userClient()
-    const { data: answers, error } = await sb
-      .from('answers')
-      .select('question_id, answer_value')
-      .eq('responses.form_id', formId)
-      .limit(50_000)
-    if (error || !answers) return {}
+    // Route through responses → embedded answers so the form filter is a plain
+    // top-level `form_id=eq.…` (filtering on a reverse embed from `answers`
+    // silently returned rows of ALL forms / or errored, which made the AI
+    // report see zero answers).
+    const admin = adminClient()
+    const { data, error } = await admin
+      .from('responses')
+      .select('answers(question_id, answer_value)')
+      .eq('form_id', formId)
+      .eq('status', 'submitted')
+      .limit(20_000)
+    if (error) throw new Error(mapError(error) ?? '')
     const map: Record<string, AnswerValue[]> = {}
-    for (const a of answers as { question_id: string; answer_value: AnswerValue }[]) {
-      ;(map[a.question_id] ??= []).push(a.answer_value)
+    for (const r of (data ?? []) as { answers: { question_id: string; answer_value: AnswerValue }[] | null }[]) {
+      for (const a of r.answers ?? []) {
+        ;(map[a.question_id] ??= []).push(a.answer_value)
+      }
     }
     return map
   },

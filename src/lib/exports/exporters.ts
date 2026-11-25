@@ -68,16 +68,29 @@ export interface ExportRow {
   submittedAt: string
   status: string
   totalScore: number | null
+  maxScore?: number | null
+  passed?: boolean | null
+  /** secure-exam identity captured at submit time */
+  respondentName?: string | null
+  respondentNationalId?: string | null
   answers: Record<string, AnswerValue>
 }
 
 function buildRows(form: FormSummary, questions: Question[], rows: ExportRow[]): string[][] {
-  const header = ['شناسه پاسخ', 'زمان ثبت', 'وضعیت', 'نمره', ...questions.map((q) => q.title || q.type)]
+  const header = [
+    'شناسه پاسخ', 'زمان ثبت', 'وضعیت', 'نمره', 'حداکثر نمره', 'وضعیت قبولی',
+    'نام و نام خانوادگی', 'کد ملی',
+    ...questions.map((q) => q.title || q.type),
+  ]
   const body = rows.map((r) => [
     r.responseId,
     r.submittedAt,
     r.status,
     r.totalScore === null ? '' : String(r.totalScore),
+    r.maxScore === null || r.maxScore === undefined ? '' : String(r.maxScore),
+    r.passed === true ? 'قبول' : r.passed === false ? 'مردود' : '',
+    r.respondentName ?? '',
+    r.respondentNationalId ?? '',
     ...questions.map((q) => sanitizeCell(stringifyAnswer(q, r.answers[q.id] ?? null))),
   ])
   return [header, ...body]
@@ -111,6 +124,10 @@ export function toJson(form: FormSummary, questions: Question[], rows: ExportRow
         submittedAt: r.submittedAt,
         status: r.status,
         totalScore: r.totalScore,
+        maxScore: r.maxScore ?? null,
+        passed: r.passed ?? null,
+        respondentName: r.respondentName ?? null,
+        respondentNationalId: r.respondentNationalId ?? null,
         answers: Object.fromEntries(
           questions.map((q) => [q.id, { type: q.type, title: q.title, value: r.answers[q.id] ?? null }]),
         ),

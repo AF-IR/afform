@@ -170,6 +170,15 @@ export const localBackend: FormsBackend = {
     return toFormSummary(copy)
   },
 
+  async findForeignQuestionIds(formId, questionIds) {
+    if (!questionIds.length) return []
+    const rows = await db.question.findMany({
+      where: { id: { in: questionIds }, formId: { not: formId } },
+      select: { id: true },
+    })
+    return rows.map((r) => r.id)
+  },
+
   async saveQuestions(formId, ownerId, questions) {
     const f = await db.form.findFirst({ where: { id: formId, ownerId } })
     if (!f) return false
@@ -212,6 +221,8 @@ export const localBackend: FormsBackend = {
         passed: input.passed ?? null,
         attemptNumber: input.attemptNumber ?? 1,
         startedAt: input.startedAt ? new Date(input.startedAt) : null,
+        respondentName: input.respondentName ?? null,
+        respondentNationalId: input.respondentNationalId ?? null,
       },
     })
     const entries = Object.entries(input.answers)
@@ -253,6 +264,31 @@ export const localBackend: FormsBackend = {
     return db.response.count({ where: { formId, respondentKey } })
   },
 
+  async getLatestResponseByKey(formId, respondentKey) {
+    const r = await db.response.findFirst({
+      where: { formId, respondentKey },
+      orderBy: { submittedAt: 'desc' },
+      include: { answers: true },
+    })
+    if (!r) return null
+    return {
+      responseId: r.id,
+      submittedAt: r.submittedAt.toISOString(),
+      status: r.status,
+      totalScore: r.totalScore,
+      maxScore: r.maxScore,
+      passed: r.passed,
+      startedAt: r.startedAt ? r.startedAt.toISOString() : null,
+      respondentName: r.respondentName,
+      respondentNationalId: r.respondentNationalId,
+      answers: Object.fromEntries(r.answers.map((a) => [a.questionId, parseJson<AnswerValue>(a.answerValue, null)])),
+    }
+  },
+
+  async countByNationalId(formId, nationalId) {
+    return db.response.count({ where: { formId, respondentNationalId: nationalId } })
+  },
+
   async listResponses(formId, opts: ListResponsesOpts) {
     const where: Record<string, unknown> = { formId }
     if (opts.from || opts.to) {
@@ -282,6 +318,10 @@ export const localBackend: FormsBackend = {
       totalScore: r.totalScore,
       maxScore: r.maxScore,
       passed: r.passed,
+      startedAt: r.startedAt ? r.startedAt.toISOString() : null,
+      respondentKey: r.respondentKey,
+      respondentName: r.respondentName,
+      respondentNationalId: r.respondentNationalId,
       answers: Object.fromEntries(r.answers.map((a) => [a.questionId, parseJson<AnswerValue>(a.answerValue, null)])),
     }))
     return { rows: exportRows, total }
@@ -312,6 +352,9 @@ export const localBackend: FormsBackend = {
       totalScore: r.totalScore,
       maxScore: r.maxScore,
       passed: r.passed,
+      startedAt: r.startedAt ? r.startedAt.toISOString() : null,
+      respondentName: r.respondentName,
+      respondentNationalId: r.respondentNationalId,
       answers: Object.fromEntries(r.answers.map((a) => [a.questionId, parseJson<AnswerValue>(a.answerValue, null)])),
     }
   },

@@ -5,10 +5,12 @@ import { localBackend } from './backend-local'
 import { supabaseBackend } from './backend-supabase'
 import type { FormsBackend } from './backend-types'
 import { computeVisibleQuestions } from '@/lib/forms/conditional'
-import { validateAnswer, isAnswerable } from '@/lib/validation/schemas'
-import { gradeSubmission, isPassed } from '@/lib/scoring/grade'
+import { validateAnswer, isAnswerable, getChoiceComment, getOtherText } from '@/lib/validation/schemas'
+import { gradeSubmission, isPassed, isAnswerCorrect } from '@/lib/scoring/grade'
 import { respondentKey, verifyAttemptToken, signAttemptToken } from '@/lib/auth/session'
-import type { AnswerValue, FormSummary, FormType, FormSettings, Question, SessionUser } from '@/types'
+import { normalizeNationalId, isValidNationalId, normalizeFullName, isNationalIdAllowed } from '@/lib/exam/identity'
+import { verifyAccountCredentials, examAccountKey } from '@/lib/exam/accounts'
+import type { AnswerValue, FormSettings, FormSummary, FormType, FormSettings as FS, Question, SessionUser } from '@/types'
 
 export function backend(): FormsBackend {
   return isSupabaseConfigured() ? supabaseBackend : localBackend
@@ -23,8 +25,17 @@ export type SubmitError =
   | 'max_attempts'
   | 'time_expired'
   | 'login_required'
+  | 'identity_not_allowed'
+  | 'identity_already_used'
+  | 'account_invalid'
+  | 'account_already_used'
   | 'validation'
   | 'server'
+
+export interface SubmitIdentity {
+  fullName?: string
+  nationalId?: string
+}
 
 export interface SubmitOutcome {
   ok: boolean
@@ -34,7 +45,67 @@ export interface SubmitOutcome {
   responseId?: string
   thankYouMessage?: string
   result?: { totalScore: number; maxScore: number; passed: boolean | null } | null
+  releaseAt?: string | null
   edited?: boolean
+}
+
+export interface SubmitPayload {
+  attemptToken?: string
+  answers: Record<string, unknown>
+  identity?: SubmitIdentity
+  /** exam access account credentials (username/password) */
+  exam?: { username?: string; password?: string }
+  editResponseId?: string
+}
+
+/**
+ * Exam access account gate — creator-defined username/password accounts.
+ * Server-side authority on EVERY call (start, submit, result):
+ * credentials must match an account of this exam, otherwise entry is refused.
+ * The respondent key is derived from the ACCOUNT (not the device), so the
+ * one-attempt rule and the result lookup work on every device.
+ */
+export function checkExamAccountGate(
+  settings: FS,
+  exam: { username?: string; password?: string } | undefined,
+): { ok: true; username: string; key: string; name: string | null } | { ok: false; code: SubmitError; message: string } {
+  const accounts = settings.examAccounts
+  if (!accounts?.enabled) return { ok: true, username: '', key: '', name: null } // gate disabled
+  const res = verifyAccountCredentials(accounts.accounts, exam?.username, exam?.password)
+  if (!res.ok) {
+    return {
+      ok: false,
+      code: 'account_invalid',
+      message: 'نام کاربری یا رمز عبور نادرست است. اطلاعات را از برگزارکنندهٔ آزمون دریافت کنید.',
+    }
+  }
+  return {
+    ok: true,
+    username: res.username,
+    key: examAccountKey(res.username),
+    name: res.account.name?.trim() || res.username,
+  }
+}
+
+/** Human-readable release moment of the exam result (server-side policy). */
+export function resultReleaseAt(settings: FormSettings, submittedAt: string | null, startedAtIso: string | null): string | null {
+  const release = settings.resultRelease ?? 'immediately'
+  if (release === 'scheduled') return settings.resultReleaseAt
+  if (release === 'afterEnd') {
+    if (settings.endAt) return settings.endAt
+    if (settings.timeLimitMinutes && startedAtIso) {
+      return new Date(new Date(startedAtIso).getTime() + settings.timeLimitMinutes * 60_000).toISOString()
+    }
+    return null // nothing to wait for
+  }
+  return null // immediate
+}
+
+export function isResultReleased(settings: FormSettings, submittedAt: string | null, startedAtIso: string | null, now = Date.now()): { released: boolean; releaseAt: string | null } {
+  if (!settings.showResultsToRespondent) return { released: false, releaseAt: null }
+  const at = resultReleaseAt(settings, submittedAt, startedAtIso)
+  if (at === null) return { released: true, releaseAt: null }
+  return { released: now >= new Date(at).getTime(), releaseAt: at }
 }
 
 export interface SubmitMeta {
@@ -47,6 +118,23 @@ export function getRespondentKey(meta: SubmitMeta): string {
   return meta.sessionUser ? `user:${meta.sessionUser.id}` : respondentKey(meta.ip, meta.userAgent)
 }
 
+/**
+ * Public-safe settings — strips creator-only secrets before anything reaches
+ * the browser: exam account PASSWORDS and the national-ID whitelist never
+ * leave the server. The client only needs the gates' enabled flags.
+ */
+export function sanitizePublicSettings(s: FormSettings): FormSettings {
+  return {
+    ...s,
+    examAccounts: s.examAccounts
+      ? { enabled: s.examAccounts.enabled, accounts: [] }
+      : null,
+    identityGate: s.identityGate
+      ? { ...s.identityGate, allowedNationalIds: [] }
+      : null,
+  }
+}
+
 /** Issue a signed quiz attempt token (server clock — browser clock is never trusted). */
 export function startAttempt(form: FormSummary & { questions: Question[] }, meta: SubmitMeta): { token: string; serverNow: number } {
   return {
@@ -57,9 +145,50 @@ export function startAttempt(form: FormSummary & { questions: Question[] }, meta
 
 const GRACE_SEC = 90 // network tolerance for in-flight submissions
 
+/**
+ * Validate the secure-exam identity gate (server-side authority):
+ * required fields → format/ checksum → whitelist membership → one entry per
+ * national ID. Returns the normalized identity, or a failure outcome.
+ * Exported for the start route (pre-exam check) — submit always re-validates.
+ */
+export async function checkIdentityGate(
+  formId: string,
+  gate: NonNullable<FormSettings['identityGate']>,
+  identity: SubmitIdentity | undefined,
+  isEdit: boolean,
+): Promise<{ ok: true; fullName: string | null; nationalId: string | null } | { ok: false; code: SubmitError; message: string; fieldErrors?: Record<string, string> }> {
+  const fullName = normalizeFullName(identity?.fullName).slice(0, 120)
+  const nid = normalizeNationalId(identity?.nationalId ?? '')
+
+  if (gate.requireNationalId) {
+    if (!nid) {
+      return { ok: false, code: 'validation', message: 'وارد کردن کد ملی الزامی است', fieldErrors: { __identity: 'کد ملی را به‌صورت ۱۰ رقمی وارد کنید' } }
+    }
+    if (!isValidNationalId(nid)) {
+      return { ok: false, code: 'validation', message: 'کد ملی واردشده معتبر نیست', fieldErrors: { __identity: 'کد ملی معتبر نیست' } }
+    }
+    if (!isNationalIdAllowed(nid, gate.allowedNationalIds)) {
+      return { ok: false, code: 'identity_not_allowed', message: 'این کد ملی در لیست مجاز این آزمون ثبت نشده است؛ در صورت نیاز با برگزارکننده تماس بگیرید' }
+    }
+    // one entry per national ID (server-side, independent of browser/device)
+    if (!isEdit) {
+      const used = await backend().countByNationalId(formId, nid)
+      if (used > 0) {
+        return { ok: false, code: 'identity_already_used', message: 'با این کد ملی قبلاً در آزمون شرکت شده است و ورود دوباره مجاز نیست' }
+      }
+    }
+  }
+
+  if (gate.requireFullName && !fullName) {
+    return { ok: false, code: 'validation', message: 'وارد کردن نام و نام خانوادگی الزامی است', fieldErrors: { __identity: 'نام و نام خانوادگی الزامی است' } }
+  }
+
+  return { ok: true, fullName: fullName || null, nationalId: nid }
+}
+
 export async function submitResponse(
   form: FormSummary & { questions: Question[] },
-  payload: { attemptToken?: string; answers: Record<string, unknown>; editResponseId?: string },
+  payload: SubmitPayload,
   meta: SubmitMeta,
 ): Promise<SubmitOutcome> {
   try {
@@ -72,10 +201,32 @@ export async function submitResponse(
     if (s.startAt && now < new Date(s.startAt).getTime()) return { ok: false, code: 'not_started' }
     if (s.endAt && now > new Date(s.endAt).getTime()) return { ok: false, code: 'closed' }
 
-    const respondentKeyValue = getRespondentKey(meta)
+    let respondentKeyValue = getRespondentKey(meta)
 
     if (!s.allowAnonymous && !meta.sessionUser) {
       return { ok: false, code: 'login_required' }
+    }
+
+    // exam access accounts (creator-defined username/password) — server authority
+    let respondentName: string | null = null
+    let respondentNationalId: string | null = null
+    const accountGate = checkExamAccountGate(s, payload.exam)
+    if (!accountGate.ok) {
+      return { ok: false, code: accountGate.code, message: accountGate.message, fieldErrors: { __exam: accountGate.message } }
+    }
+    if (accountGate.key) {
+      respondentKeyValue = accountGate.key
+      respondentName = accountGate.name
+    }
+
+    // legacy secure-exam identity gate (whitelist + one entry per national ID)
+    if (s.identityGate?.enabled) {
+      const gate = await checkIdentityGate(form.id, s.identityGate, payload.identity, Boolean(payload.editResponseId))
+      if (!gate.ok) {
+        return { ok: false, code: gate.code, message: gate.message, fieldErrors: gate.fieldErrors }
+      }
+      respondentName = gate.fullName
+      respondentNationalId = gate.nationalId
     }
 
     // response limit
@@ -170,6 +321,8 @@ export async function submitResponse(
       passed,
       attemptNumber: 1,
       startedAt: startedAtIso,
+      respondentName,
+      respondentNationalId,
       answers: normalized,
     })
 
@@ -177,7 +330,8 @@ export async function submitResponse(
       ok: true,
       responseId,
       thankYouMessage: s.thankYouMessage,
-      result: s.showResultsToRespondent ? result : null,
+      result: isResultReleased(s, new Date().toISOString(), startedAtIso).released ? result : null,
+      releaseAt: resultReleaseAt(s, new Date().toISOString(), startedAtIso),
     }
   } catch (e) {
     console.error('submitResponse failed:', e instanceof Error ? e.message : e)
@@ -217,6 +371,9 @@ export interface QuestionReport {
   choiceCounts?: { label: string; count: number }[]
   average?: number | null
   distribution?: { value: number; count: number }[]
+  /** quiz-only: share of CORRECT answers among graded answers */
+  correctCount?: number
+  gradedCount?: number
   samples?: string[]
 }
 
@@ -293,6 +450,44 @@ export async function buildFormReport(form: FormSummary & { questions: Question[
       } else {
         base.samples = values.slice(-20).map((v) => (typeof v === 'string' ? v : JSON.stringify(v)))
       }
+
+      // every question type can carry free text (سایر / توضیح) — surface it for the AI
+      const texts = values
+        .map((v) => getOtherText(v) ?? getChoiceComment(v))
+        .filter((t): t is string => typeof t === 'string' && t.trim().length > 0)
+        .map((t) => t.trim())
+      if (texts.length) {
+        base.samples = [...(base.samples ?? []), ...texts].slice(-20)
+      }
+
+      // matrix answers → readable «سطر: ستون» samples
+      if (q.type === 'matrix') {
+        const rows = q.config.rows ?? []
+        const cols = q.config.cols ?? []
+        base.samples = values.slice(-20).map((v) =>
+          typeof v === 'object' && v !== null && !Array.isArray(v)
+            ? Object.entries(v as Record<string, string>).map(([r, c]) => `${rows[Number(r)] ?? r}: ${c}`).join('، ')
+            : JSON.stringify(v),
+        )
+      }
+
+      // quiz: how many answered CORRECTLY (auto-scored types only)
+      if (form.formType === 'quiz' && q.scoring && q.scoring.points > 0) {
+        let graded = 0
+        let correct = 0
+        for (const v of values) {
+          const c = isAnswerCorrect(q, v)
+          if (c !== null) {
+            graded++
+            if (c) correct++
+          }
+        }
+        if (graded > 0) {
+          base.gradedCount = graded
+          base.correctCount = correct
+        }
+      }
+
       return base
     })
 
