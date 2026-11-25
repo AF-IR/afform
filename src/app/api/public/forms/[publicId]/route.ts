@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 import { getCurrentUser } from '@/lib/auth/service'
-import { backend, getRespondentKey } from '@/lib/forms/service'
+import { backend, getRespondentKey, sanitizePublicSettings } from '@/lib/forms/service'
 import { jsonError, jsonOk } from '@/lib/api-helpers'
 import type { SubmitMeta } from '@/lib/forms/service'
 import { clientIp } from '@/lib/rate-limit'
@@ -36,7 +36,7 @@ export async function GET(_req: Request, { params }: Params) {
         description: form.description,
         formType: form.formType,
         status: form.status,
-        settings: form.settings,
+        settings: sanitizePublicSettings(form.settings),
       },
       questions: form.questions,
       serverNow: Date.now(),

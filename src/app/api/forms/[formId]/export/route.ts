@@ -30,6 +30,10 @@ export async function GET(req: Request, { params }: Params) {
       submittedAt: r.submittedAt,
       status: r.status,
       totalScore: r.totalScore,
+      maxScore: r.maxScore,
+      passed: r.passed,
+      respondentName: r.respondentName,
+      respondentNationalId: r.respondentNationalId,
       answers: r.answers as Record<string, AnswerValue>,
     }))
 

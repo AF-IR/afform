@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { CalendarClock, FileText, Lock } from 'lucide-react'
 import { getCurrentUser } from '@/lib/auth/service'
-import { backend } from '@/lib/forms/service'
+import { backend, sanitizePublicSettings } from '@/lib/forms/service'
 import { PublicFormClient } from '@/components/public/public-form-client'
 import { faDate } from '@/lib/persian'
 
@@ -93,7 +93,7 @@ export default async function PublicFormPage({ params }: Props) {
           title: form.title,
           description: form.description,
           formType: form.formType,
-          settings: form.settings,
+          settings: sanitizePublicSettings(form.settings),
         }}
         questions={form.questions}
         serverNow={now}

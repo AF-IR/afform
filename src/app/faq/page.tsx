@@ -6,6 +6,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Button } from '@/components/ui/button'
 import { getCurrentUser } from '@/lib/auth/service'
 import { FAQ_SCHEMA } from '@/lib/seo'
+import { DOC_PAGES, docHref } from '@/lib/docs/content'
+import { BookOpen } from 'lucide-react'
 
 export const metadata: Metadata = {
   title: 'پرسش‌های متداول و راهنما',
@@ -64,6 +66,21 @@ export default async function FaqPage() {
           ))}
         </section>
 
+        <section className="mt-10 rounded-xl border border-primary/20 bg-primary/5 p-5" aria-labelledby="deepdive">
+          <h2 id="deepdive" className="font-bold">مستندات کامل — عمیق‌تر از این راهنما</h2>
+          <p className="mt-1.5 text-sm leading-7 text-muted-foreground">
+            برای هر موضوع، یک راهنمای مفصل جداگانه داریم؛ اگر پاسخ سؤال شما اینجا نبود، مستندات را ببینید:
+          </p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {DOC_PAGES.slice(0, 6).map((d) => (
+              <Link key={d.slug} href={docHref(d.slug)} className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm font-medium transition-colors hover:border-primary/40 hover:text-primary">
+                <BookOpen className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+                {d.title}
+              </Link>
+            ))}
+          </div>
+        </section>
+
         <section className="mt-12" aria-labelledby="faq">
           <h2 id="faq" className="text-xl font-bold">پرسش‌های متداول</h2>
           <Accordion type="single" collapsible className="mt-4">
@@ -76,11 +93,27 @@ export default async function FaqPage() {
           </Accordion>
         </section>
 
-        <div className="mt-10 rounded-xl bg-muted/50 p-6 text-center">
+        <div className="mt-10 rounded-xl border border-primary/30 bg-primary/5 p-6 text-center" aria-labelledby="not-found">
+          <h2 id="not-found" className="font-bold">پاسخ خود را پیدا نکردید؟</h2>
+          <p className="mt-1.5 text-sm leading-7 text-muted-foreground">
+            مستندات جامع آرشام فرم را مطالعه کنید — برای هر قابلیت، راهنمای کامل و مثال واقعی داریم —
+            یا از طریق راه‌های تماس در پایین صفحه از ما بپرسید؛ ما پاسخ می‌دهیم.
+          </p>
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
+            <Button asChild>
+              <Link href="/docs">مطالعه مستندات جامع</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href="/docs/troubleshooting">عیب‌یابی مشکلات رایج</Link>
+            </Button>
+          </div>
+        </div>
+
+        <div className="mt-6 rounded-xl bg-muted/50 p-6 text-center">
           <p className="font-bold">آماده شروع هستید؟</p>
-          <p className="mt-1 text-sm text-muted-foreground">اولین فرم خود را رایگان بسازید.</p>
+          <p className="mt-1 text-sm text-muted-foreground">اولین پرسش‌نامه خود را با هوش مصنوعی رایگان بسازید.</p>
           <Button asChild className="mt-4">
-            <Link href="/dashboard/forms/new">ساخت فرم جدید</Link>
+            <Link href="/dashboard/forms/new">ساخت پرسش‌نامه با هوش مصنوعی</Link>
           </Button>
         </div>
       </main>

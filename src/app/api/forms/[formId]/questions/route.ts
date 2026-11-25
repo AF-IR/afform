@@ -12,7 +12,8 @@ export async function PUT(req: Request, { params }: Params) {
   if (!user) return jsonError('ابتدا وارد شوید', 401)
   const { formId } = await params
 
-  const body = await readJson<unknown>(req)
+  // 4 MB — question payloads may carry embedded question images (data URLs)
+  const body = await readJson<unknown>(req, 4 * 1024 * 1024)
   if (!body) return jsonError('حجم یا ساختار درخواست نامعتبر است')
 
   const parsed = questionsPayloadSchema.safeParse(body)
@@ -30,6 +31,16 @@ export async function PUT(req: Request, { params }: Params) {
   }
 
   try {
+    // Guard against question-id takeover: ids arrive from the client, so an id
+    // that already exists on a DIFFERENT form must never be upserted onto this
+    // form (that would silently move the row and orphan the other form's data).
+    const ids = sorted.map((q) => q.id)
+    const uniqueIds = [...new Set(ids)]
+    const foreign = await backend().findForeignQuestionIds(formId, uniqueIds)
+    if (foreign.length > 0) {
+      return jsonError('شناسه سؤال با فرم دیگری تداخل دارد؛ سؤال‌ها را دوباره بسازید یا شناسه‌ها را تغییر دهید', 409)
+    }
+
     const ok = await backend().saveQuestions(formId, user.id, sorted)
     if (!ok) return jsonError('فرم یافت نشد', 404)
     return jsonOk({ saved: true, count: sorted.length })

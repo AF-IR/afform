@@ -4,6 +4,7 @@ import { jsonError, jsonOk } from '@/lib/api-helpers'
 import { rateLimit } from '@/lib/rate-limit'
 import { runAiAnalysis } from '@/lib/ai/analysis'
 import { ZaiNotConfiguredError } from '@/lib/ai/zai-client'
+import { checkAiQuota, getAiUsage, quotaMessage, recordAiUsage } from '@/lib/ai/usage'
 
 type Params = { params: Promise<{ formId: string }> }
 
@@ -44,6 +45,10 @@ export async function POST(_req: Request, { params }: Params) {
     )
   }
 
+  // daily quota (Supabase-stored): free plan = ۲ تحلیل در روز, pro = unlimited
+  const quota = await checkAiQuota(user.id, 'analyze')
+  if (!quota.allowed) return jsonError(quotaMessage('analyze', quota.snapshot.plan, quota.snapshot.dateKey), 429)
+
   try {
     const form = await backend().getForm(formId, user.id)
     if (!form) return jsonError('فرم یافت نشد', 404)
@@ -60,7 +65,18 @@ export async function POST(_req: Request, { params }: Params) {
       provider,
       responsesCount: report.totalResponses,
     })
-    return jsonOk({ analysis: saved })
+
+    // count the successful analysis against the daily quota, then report the remaining one
+    await recordAiUsage(user.id, 'analyze')
+    const usage = await getAiUsage(user.id)
+    return jsonOk({
+      analysis: saved,
+      quota: {
+        plan: usage.plan,
+        analyze: { used: usage.analyze.used, limit: usage.analyze.limit },
+        generate: { used: usage.generate.used, limit: usage.generate.limit },
+      },
+    })
   } catch (e) {
     if (e instanceof ZaiNotConfiguredError) return jsonError(e.message, 503)
     return jsonError(e instanceof Error ? e.message : 'خطا در تولید تحلیل هوش مصنوعی', 500)
